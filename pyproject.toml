@@ -1,0 +1,20 @@
+[project]
+name = "agent-cost-lab"
+version = "0.1.0"
+description = "Measure what an agent task costs, and how much prefix caching saves."
+authors = [{ name = "Jahnavi", email = "jy4857@nyu.edu" }]
+requires-python = ">=3.10"
+dependencies = ["httpx>=0.27"]
+
+[project.scripts]
+agentcost = "agentcost.cli:main"
+
+[dependency-groups]
+dev = ["pytest>=8"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["agentcost"]
