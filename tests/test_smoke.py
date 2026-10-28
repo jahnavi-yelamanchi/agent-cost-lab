@@ -4,7 +4,7 @@ import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-from agentcost import replay
+from agentcost import replay, report
 from agentcost.trace import read_trace
 
 TRACE = Path(__file__).parent.parent / "data" / "tiny.jsonl"
@@ -49,3 +49,6 @@ def test_replay_tiny_trace(tmp_path):
     rows = read_trace(dest)
     assert len(rows) == len(read_trace(TRACE)) == 5
     assert all(r["ttft_s"] is not None and r["timings"]["cache_n"] == 60 for r in rows)
+    out = report.build_report([dest], str(tmp_path / "report.html"), gpu_price=2.0)
+    page = Path(out).read_text()
+    assert "tiny.jsonl" in page and "60%" in page and "self-hosted $" in page and "Why" in page

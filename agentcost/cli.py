@@ -1,6 +1,6 @@
 import argparse
 
-from agentcost import importers, proxy, replay
+from agentcost import importers, proxy, replay, report
 
 
 def main():
@@ -21,6 +21,16 @@ def main():
     p.add_argument("--endpoint", required=True, help="server root, e.g. http://localhost:8080")
     p.add_argument("--model", help="model name to send (default: recorded, else 'default')")
     p.add_argument("--out", default="runs")
+    p.add_argument("--gpu-price", type=float, help="USD per GPU hour, for the self-hosted cost estimate")
+    p.add_argument("--prices", help="prices JSON (see prices.example.json) for the API cost estimate")
+    p.add_argument("--report", default="report.html")
+
+    p = sub.add_parser("report", help="rebuild report.html from existing runs/*.jsonl")
+    p.add_argument("runs", nargs="+", help="replay output .jsonl files")
+    p.add_argument("--gpu-price", type=float)
+    p.add_argument("--prices")
+    p.add_argument("--model", help="key into the prices file")
+    p.add_argument("--out", default="report.html")
 
     a = ap.parse_args()
     if a.cmd == "proxy":
@@ -29,8 +39,10 @@ def main():
         for path in importers.import_sweagent(a.src, a.out):
             print(path)
     elif a.cmd == "replay":
-        for path in a.traces:
-            replay.replay_trace(path, a.endpoint, a.out, a.model)
+        runs = [replay.replay_trace(path, a.endpoint, a.out, a.model) for path in a.traces]
+        print(report.build_report(runs, a.report, a.gpu_price, a.prices, a.model))
+    elif a.cmd == "report":
+        print(report.build_report(a.runs, a.out, a.gpu_price, a.prices, a.model))
 
 
 if __name__ == "__main__":
