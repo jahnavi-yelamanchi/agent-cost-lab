@@ -95,14 +95,38 @@ STYLE = ("body{font:15px/1.5 system-ui,sans-serif;max-width:60rem;margin:2rem au
          "table{border-collapse:collapse}td,th{border:1px solid #ccc;padding:.25rem .6rem;text-align:right}th{background:#f3f3f3}")
 
 
+def run_label(path):
+    """runs/<strategy>/<trace>.jsonl -> '<strategy>: <trace>.jsonl'."""
+    return f"{os.path.basename(os.path.dirname(path))}: {os.path.basename(path)}"
+
+
+def summary_table(labelled, gpu_price, price):
+    """One row per run so strategies can be compared side by side."""
+    rows = ""
+    for label, stats in labelled:
+        prompt, cached = sum(s["prompt"] or 0 for s in stats), sum(s["cached"] or 0 for s in stats)
+        known = all(s["hit"] is not None for s in stats)
+        secs = sum(s["total"] for s in stats)
+        own = "n/a" if gpu_price is None else f"${gpu_price / 3600 * secs:.4f}"
+        api = api_cost(stats, price)
+        rows += (f"<tr><td style='text-align:left'>{html.escape(label)}</td><td>{prompt}</td>"
+                 f"<td>{fmt(cached / prompt if known and prompt else None, '.0%')}</td>"
+                 f"<td>{sum(s['computed'] or 0 for s in stats)}</td><td>{secs:.1f}</td><td>{own}</td>"
+                 f"<td>{fmt(api, '$.4f')}</td></tr>")
+    return ("<h2>Comparison</h2><table><tr><th>run</th><th>prompt tok (sum)</th><th>cache hit</th>"
+            "<th>computed tok (sum)</th><th>total s</th><th>self-hosted</th><th>API</th></tr>" + rows + "</table>"
+            "<p>Task success under a strategy is not measured: recorded completions are fixed, so this compares cost and latency only.</p>")
+
+
 def build_report(run_files, out_path, gpu_price=None, prices_path=None, model=None):
     prices = {}
     if prices_path:
         with open(prices_path) as f:
             prices = json.load(f).get("models", {})
     price = prices.get(model) if model else None
-    body = "".join(trace_section(os.path.basename(p), [turn_stats(r) for r in read_trace(p)], gpu_price, price)
-                   for p in run_files)
+    labelled = [(run_label(p), [turn_stats(r) for r in read_trace(p)]) for p in run_files]
+    body = summary_table(labelled, gpu_price, price) + "".join(
+        trace_section(label, stats, gpu_price, price) for label, stats in labelled)
     doc = (f"<!doctype html><meta charset=utf-8><title>agentcost report</title><style>{STYLE}</style>"
            f"<h1>agentcost report</h1>{CAVEATS}{body}")
     with open(out_path, "w") as f:
