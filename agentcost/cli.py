@@ -1,6 +1,6 @@
 import argparse
 
-from agentcost import importers, proxy
+from agentcost import importers, proxy, replay
 
 
 def main():
@@ -16,12 +16,21 @@ def main():
     p.add_argument("src", help=".traj file or directory")
     p.add_argument("--out", default="traces")
 
+    p = sub.add_parser("replay", help="replay traces against an OpenAI-compatible server, record timings")
+    p.add_argument("traces", nargs="+", help="trace .jsonl files")
+    p.add_argument("--endpoint", required=True, help="server root, e.g. http://localhost:8080")
+    p.add_argument("--model", help="model name to send (default: recorded, else 'default')")
+    p.add_argument("--out", default="runs")
+
     a = ap.parse_args()
     if a.cmd == "proxy":
         proxy.serve(a.upstream, a.out, a.port)
     elif a.cmd == "import-sweagent":
         for path in importers.import_sweagent(a.src, a.out):
             print(path)
+    elif a.cmd == "replay":
+        for path in a.traces:
+            replay.replay_trace(path, a.endpoint, a.out, a.model)
 
 
 if __name__ == "__main__":
