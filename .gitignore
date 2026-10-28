@@ -4,3 +4,4 @@ __pycache__/
 traces/
 runs/
 report.html
+.python-version
