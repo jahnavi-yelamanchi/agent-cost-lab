@@ -64,11 +64,29 @@ def replay_turn(client, endpoint, model, turn):
     }
 
 
+def flush_cache(client, endpoint):
+    """Cold-start the server's prompt cache so a trace's first turn can't hit a previous run.
+
+    Only llama-server (started with --slot-save-path) supports this. For vLLM/SGLang, restart the
+    server between traces instead. Returns True if every slot was erased.
+    """
+    base = endpoint.rstrip("/")
+    try:
+        slots = client.get(base + "/slots").json()
+        return all(client.post(f"{base}/slots/{s['id']}?action=erase").status_code == 200 for s in slots)
+    except (httpx.HTTPError, ValueError, TypeError, KeyError):
+        return False
+
+
 def replay_trace(path, endpoint, out_dir, model=None, timeout=600):
     turns = read_trace(path)
     os.makedirs(out_dir, exist_ok=True)
     dest = os.path.join(out_dir, os.path.basename(path))
-    with httpx.Client(timeout=timeout) as client, open(dest, "w") as f:
+    # No keep-alive: llama-server dropped the reused connection after a slow cold first turn
+    # ("Server disconnected without sending a response"); one connection per request avoids it.
+    with httpx.Client(timeout=timeout, limits=httpx.Limits(max_keepalive_connections=0)) as client, open(dest, "w") as f:
+        if not flush_cache(client, endpoint):
+            print("WARNING: could not clear server prompt cache; first-turn cache hits may come from a previous run")
         for t in turns:
             row = replay_turn(client, endpoint, model, t)
             f.write(json.dumps(row) + "\n")
