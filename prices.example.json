@@ -1,0 +1,6 @@
+{
+  "_comment": "Copy to prices.json and fill in $ per million tokens from your provider's price page. null = not set; the report says so instead of guessing.",
+  "models": {
+    "my-model-name": {"input_per_mtok": null, "cached_input_per_mtok": null, "output_per_mtok": null}
+  }
+}
