@@ -1,6 +1,6 @@
 # agent-cost-lab
 
-**Status:** M1 (traces in) and M2 (replay and measure) work. M3 (`report.html`, cost estimates) is next. Numbers below are pipeline validation on a CPU, not a benchmark.
+**Status:** M1 (traces in), M2 (replay and measure) and M3 (`report.html` with cost estimates) work. M4 (one context strategy) is not started. Numbers below are pipeline validation on a CPU, not a benchmark.
 
 ## Problem
 
@@ -16,7 +16,7 @@ For each recorded LLM call in a task, replayed in order against an OpenAI-compat
 - time to first token (TTFT) and total latency
 - prefill vs decode time, when the server reports it
 
-Planned (M3): estimated cost per task, self-hosted (GPU $/hr x measured time) vs API (prices from a config file you edit). Planned (M4): the same numbers under one context strategy.
+`report.html` also gives an estimated cost per task: self-hosted (GPU $/hr x measured time) vs API (prices from a JSON file you edit), plus a short auto-written "why". Planned (M4): the same numbers under one context strategy.
 
 ## Run it (under 5 minutes, plus model download)
 
@@ -27,8 +27,10 @@ uv run agentcost import-sweagent path/to/trajs --out traces
 # 2. a server: llama.cpp's llama-server (build from source: cmake -B build -DLLAMA_CURL=OFF && cmake --build build --target llama-server)
 llama-server -m model.gguf -c 32768 --port 8080 --metrics --slot-save-path ./slots
 # 3. replay
-uv run agentcost replay data/tiny.jsonl --endpoint http://localhost:8080
+uv run agentcost replay data/tiny.jsonl --endpoint http://localhost:8080 --gpu-price 2.0
 ```
+
+That writes `report.html`. For API cost, copy `prices.example.json` to `prices.json`, fill in $/million tokens from your provider (the file ships with nulls; the report says "not set" rather than guessing), and add `--prices prices.json --model <name>`. `agentcost report runs/*.jsonl` rebuilds the page without replaying.
 
 Output goes to `runs/<trace>.jsonl`, one row per call. To record your own agent instead, run `agentcost proxy --upstream <server> --out traces/task1.jsonl` and point the agent at the proxy.
 
@@ -44,7 +46,7 @@ Output goes to `runs/<trace>.jsonl`, one row per call. To record your own agent 
 | 3 | 2455 | 471 | 2.38 s |
 | 4 | 2926 | 101 | 0.69 s |
 
-Reading it: TTFT tracks the *computed* tokens, not the prompt length. Prefill ran at about 200 tokens/s, so turn 0 paid 7 s to read the whole prompt once and later turns paid only for what was new. Decode ran at about 32 tokens/s. On this setup prefill dominates time-to-first-token; whether prefill or decode dominates *total* time depends on completion length and is what the M3 report will state per trace.
+Reading it: TTFT tracks the *computed* tokens, not the prompt length. Prefill ran at about 200 tokens/s, so turn 0 paid 7 s to read the whole prompt once and later turns paid only for what was new. Decode ran at about 32 tokens/s. On this setup prefill dominates time-to-first-token; the report states per trace whether prefill or decode dominated (here prefill: 63% of server time, 37% decode). Cost for this trace at a made-up $2/hr GPU is about a cent; that figure only shows the arithmetic, not a real price.
 
 This is a 0.5B model on CPU. It validates the pipeline and the cache mechanics. It says nothing about GPU timings.
 
