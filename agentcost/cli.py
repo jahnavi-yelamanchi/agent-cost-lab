@@ -1,6 +1,6 @@
 import argparse
 
-from agentcost import importers, proxy, replay, report
+from agentcost import importers, proxy, replay, report, strategies
 
 
 def main():
@@ -21,6 +21,7 @@ def main():
     p.add_argument("--endpoint", required=True, help="server root, e.g. http://localhost:8080")
     p.add_argument("--model", help="model name to send (default: recorded, else 'default')")
     p.add_argument("--out", default="runs")
+    p.add_argument("--strategy", choices=sorted(strategies.STRATEGIES), default="full", help="context strategy applied before replay")
     p.add_argument("--gpu-price", type=float, help="USD per GPU hour, for the self-hosted cost estimate")
     p.add_argument("--prices", help="prices JSON (see prices.example.json) for the API cost estimate")
     p.add_argument("--report", default="report.html")
@@ -39,7 +40,7 @@ def main():
         for path in importers.import_sweagent(a.src, a.out):
             print(path)
     elif a.cmd == "replay":
-        runs = [replay.replay_trace(path, a.endpoint, a.out, a.model) for path in a.traces]
+        runs = [replay.replay_trace(path, a.endpoint, a.out, a.model, strategy=a.strategy) for path in a.traces]
         print(report.build_report(runs, a.report, a.gpu_price, a.prices, a.model))
     elif a.cmd == "report":
         print(report.build_report(a.runs, a.out, a.gpu_price, a.prices, a.model))

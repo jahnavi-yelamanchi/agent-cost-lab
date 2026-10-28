@@ -14,6 +14,7 @@ import time
 
 import httpx
 
+from agentcost.strategies import apply_strategy
 from agentcost.trace import read_trace
 
 
@@ -78,8 +79,9 @@ def flush_cache(client, endpoint):
         return False
 
 
-def replay_trace(path, endpoint, out_dir, model=None, timeout=600):
-    turns = read_trace(path)
+def replay_trace(path, endpoint, out_dir, model=None, timeout=600, strategy="full"):
+    turns = apply_strategy(strategy, read_trace(path))
+    out_dir = os.path.join(out_dir, strategy)
     os.makedirs(out_dir, exist_ok=True)
     dest = os.path.join(out_dir, os.path.basename(path))
     # No keep-alive: llama-server dropped the reused connection after a slow cold first turn
